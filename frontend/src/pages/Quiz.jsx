@@ -164,24 +164,14 @@
 import React, { useState, useEffect } from "react";
 import { data } from "../assets/data"; // Ensure your data is structured properly
 
-const Modal = ({ show, depressionLevel, onClose }) => {
+const Modal = ({ show, suggestion, onClose }) => {
   if (!show) return null;
-
-  let suggestionMessage = "";
-  if (depressionLevel === "High Depression") {
-    suggestionMessage = "Please consider taking advice from a doctor.";
-  } else if (depressionLevel === "Medium Depression") {
-    suggestionMessage = "Listen to a podcast, read a book, or try meditation.";
-  } else if (depressionLevel === "Depression-Free") {
-    suggestionMessage =
-      "Congratulations! The test is clear, and you are depression-free.";
-  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
       <div className="bg-white p-8 rounded-xl shadow-2xl w-11/12 max-w-md text-center">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">Suggestion</h2>
-        <p className="text-gray-700 mb-6">{suggestionMessage}</p>
+        <p className="text-gray-700 mb-6">{suggestion}</p>
         <button
           className="bg-indigo-600 text-white px-6 py-2 rounded-md border border-indigo-700 hover:bg-indigo-700 transition-all"
           onClick={onClose}
@@ -200,7 +190,7 @@ const Quiz = () => {
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [showResult, setShowResult] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [depressionLevel, setDepressionLevel] = useState("");
+  const [suggestion, setSuggestion] = useState("");
 
   const question = data[index];
 
@@ -237,6 +227,18 @@ const Quiz = () => {
     }
   };
 
+  // Function to get suggestion based on Quiz test score
+  const getSuggestionFromScore = (score) => {
+    if (score < 5) {
+      return "Connect with doctor";
+    } else if (score >= 5 && score <= 8) {
+      return "Perform activity and if possible connect the doctor";
+    } else if (score > 8) {
+      return "Depression free - Keep maintaining your positive mental health!";
+    }
+    return "Add your diary then give your depression level";
+  };
+
   const calculateDepression = () => {
     if (correctAnswers >= 8) {
       return "Depression-Free";
@@ -250,8 +252,10 @@ const Quiz = () => {
   useEffect(() => {
     if (showResult) {
       const level = calculateDepression();
-      setDepressionLevel(level);
+      const suggestionMessage = getSuggestionFromScore(correctAnswers);
+      setSuggestion(suggestionMessage);
       setShowModal(true);
+      
       // Save result to local storage
       localStorage.setItem(
         "quizResult",
@@ -260,6 +264,42 @@ const Quiz = () => {
           correctAnswers,
         })
       );
+
+      // Save result to database
+      const saveQuizResultToDatabase = async () => {
+        // Get user information from localStorage
+        const userName = localStorage.getItem("userName") || "Guest User";
+        const userEmail = localStorage.getItem("userEmail") || null;
+        const userId = null; // Can be extracted from JWT token if needed
+
+        try {
+          const response = await fetch("http://localhost:5000/api/quiz/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userName: userName,
+              userEmail: userEmail,
+              userId: userId,
+              testType: "Quiz",
+              testScore: correctAnswers,
+              depressionLevel: level,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            console.error("Error saving quiz result:", errorData.error || `Server error: ${response.status}`);
+          } else {
+            const responseData = await response.json();
+            console.log("Quiz result saved successfully! Result ID:", responseData.resultId);
+          }
+        } catch (error) {
+          console.error("Error saving quiz result to database:", error);
+          // Don't show error to user, just log it
+        }
+      };
+
+      saveQuizResultToDatabase();
     }
   }, [showResult, correctAnswers]);
 
@@ -272,13 +312,11 @@ const Quiz = () => {
       {showResult ? (
         <div className="text-center">
           <h2 className="text-2xl font-semibold mb-4">
-            Your Depression Level: {calculateDepression()}
+            Thank you for taking the test!
           </h2>
-          <p className="mb-2">
-            You answered {correctAnswers} out of {data.length} questions
-            correctly.
+          <p className="mb-2 text-gray-600">
+            You answered {correctAnswers} out of {data.length} questions correctly.
           </p>
-          <p className="text-gray-600">Thank you for taking the test.</p>
         </div>
       ) : (
         <>
@@ -320,7 +358,7 @@ const Quiz = () => {
       )}
       <Modal
         show={showModal}
-        depressionLevel={depressionLevel}
+        suggestion={suggestion}
         onClose={() => setShowModal(false)}
       />
     </div>

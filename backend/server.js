@@ -7,6 +7,7 @@ const cors = require("cors");
 const userRoutes = require("./routes/userRoute");
 const appointmentRoutes = require("./routes/appointmentRoute");
 const doctorRoutes = require("./routes/doctorRoute");
+const quizRoutes = require("./routes/quizRoute");
 const errorHandler = require("./middlewares/errorHandler");
 
 dotenv.config();
@@ -29,6 +30,7 @@ mongoose
 app.use("/api/user", userRoutes); // Use user routes
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api", doctorRoutes);
+app.use("/api/quiz", quizRoutes); // Quiz/Diary test routes
 
 app.use(errorHandler);
 
